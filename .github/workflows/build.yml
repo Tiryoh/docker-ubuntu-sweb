@@ -1,8 +1,17 @@
 name: Build
 on:
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "7 6 * * 0" # Weekly on Sundays at 15:07 (JST)
   push:
+    branches:
+      - master
+    paths:
+      - "Dockerfile"
+      - ".github/workflows/**"
+
+env:
+  DOCKER_USERNAME: tiryoh
+  DOCKER_IMAGENAME: docker-ubuntu-sweb
 
 jobs:
   build:
@@ -26,34 +35,31 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ env.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and Push
-        if: ${{ matrix.os.latest == false }}
-        uses: docker/build-push-action@v3
+      - name: Prepare Docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
         with:
-          build-args: BASE_TAG=${{ matrix.os.code }}
-          context: .
-          platforms: linux/amd64, linux/arm64
-          push: true
-          cache-from: type=gha,scope=${{ matrix.os.code }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.os.code }}
+          images: |
+            ${{ env.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGENAME }}
           tags: |
-            atsushisaito/docker-ubuntu-sweb:${{ matrix.os.code }}
-            atsushisaito/docker-ubuntu-sweb:${{ matrix.os.version }}
+            type=raw,value=${{ matrix.os.code }}
+            type=raw,value=${{ matrix.os.code }}-{{date 'YYYYMMDDTHHmm'}}
+          flavor: |
+            latest=${{ matrix.os.latest }}
+            prefix=
+            suffix=
 
-      - name: Build and Push Latest
-        if: ${{ matrix.os.latest == true }}
-        uses: docker/build-push-action@v3
+      - name: Build and Push
+        uses: docker/build-push-action@v4
         with:
           build-args: BASE_TAG=${{ matrix.os.code }}
           context: .
           platforms: linux/amd64, linux/arm64
-          push: true
+          push: ${{ github.ref == 'refs/heads/master' }}
           cache-from: type=gha,scope=${{ matrix.os.code }}
           cache-to: type=gha,mode=max,scope=${{ matrix.os.code }}
-          tags: |
-            atsushisaito/docker-ubuntu-sweb:${{ matrix.os.code }}
-            atsushisaito/docker-ubuntu-sweb:${{ matrix.os.version }}
-            atsushisaito/docker-ubuntu-sweb:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
