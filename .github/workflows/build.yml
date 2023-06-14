@@ -26,6 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Set Current Date
+        env:
+          TZ: 'Asia/Tokyo'
+        run: echo "CURRENT_DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v2
 
